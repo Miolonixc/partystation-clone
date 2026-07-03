@@ -3,9 +3,11 @@ import type { RoundResult } from '../types';
 interface ResultScreenProps {
   results: RoundResult;
   playerId: string;
+  isHost?: boolean;
+  onNextRound?: () => void;
 }
 
-export function ResultScreen({ results, playerId }: ResultScreenProps) {
+export function ResultScreen({ results, playerId, isHost, onNextRound }: ResultScreenProps) {
   const myResult = results.results.find(r => r.playerId === playerId);
 
   return (
@@ -34,6 +36,7 @@ export function ResultScreen({ results, playerId }: ResultScreenProps) {
             <div key={p.playerId} style={{
               ...styles.leaderItem,
               ...(p.playerId === playerId ? styles.leaderItemMe : {}),
+              ...(i === 0 ? styles.leaderItemGold : {}),
             }}>
               <span style={styles.leaderPlace}>
                 {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -44,7 +47,21 @@ export function ResultScreen({ results, playerId }: ResultScreenProps) {
           ))}
         </div>
 
-        <p style={styles.hint}>Ожидаем следующий раунд...</p>
+        {isHost && results.round < results.total && (
+          <button style={styles.nextBtn} onClick={onNextRound}>
+            Следующий раунд →
+          </button>
+        )}
+
+        {isHost && results.round >= results.total && (
+          <button style={styles.finishBtn} onClick={onNextRound}>
+            Показать результаты
+          </button>
+        )}
+
+        {!isHost && (
+          <p style={styles.hint}>Ожидаем следующий раунд...</p>
+        )}
       </div>
     </div>
   );
@@ -106,7 +123,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   leaderItem: {
     display: 'flex',
@@ -119,6 +136,10 @@ const styles: Record<string, React.CSSProperties> = {
   leaderItemMe: {
     background: 'rgba(108,99,255,0.2)',
     border: '1px solid rgba(108,99,255,0.4)',
+  },
+  leaderItemGold: {
+    background: 'rgba(255,215,0,0.1)',
+    border: '1px solid rgba(255,215,0,0.3)',
   },
   leaderPlace: {
     width: 30,
@@ -134,6 +155,30 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 16,
     fontWeight: 700,
     color: '#4ECDC4',
+  },
+  nextBtn: {
+    width: '100%',
+    padding: '14px 0',
+    borderRadius: 12,
+    border: 'none',
+    background: 'linear-gradient(135deg, #6C63FF, #4ECDC4)',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(108,99,255,0.3)',
+  },
+  finishBtn: {
+    width: '100%',
+    padding: '14px 0',
+    borderRadius: 12,
+    border: 'none',
+    background: 'linear-gradient(135deg, #FFD700, #FFA500)',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(255,215,0,0.3)',
   },
   hint: {
     textAlign: 'center',

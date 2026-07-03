@@ -141,7 +141,12 @@ export default function App() {
 
   if (screen === 'result' && results) {
     return (
-      <ResultScreen results={results} playerId={playerId} />
+      <ResultScreen
+        results={results}
+        playerId={playerId}
+        isHost={isHost}
+        onNextRound={handleNextRound}
+      />
     );
   }
 
