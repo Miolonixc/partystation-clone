@@ -31,8 +31,11 @@ export function JoinScreen({ onJoin, error, isHost, onCreateRoom, loading }: Joi
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h1 style={styles.logo}>🎮 PartyStation</h1>
-        <p style={styles.subtitle}>Присоединяйся к вечеринке!</p>
+        <div style={styles.logoContainer}>
+          <span style={styles.logo}>🎮</span>
+        </div>
+        <h1 style={styles.title}>PartyStation</h1>
+        <p style={styles.subtitle}>Интерактивные игры для вечеринок</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
@@ -40,7 +43,7 @@ export function JoinScreen({ onJoin, error, isHost, onCreateRoom, loading }: Joi
             <input
               id="player-name"
               type="text"
-              placeholder="Твоё имя"
+              placeholder="Как вас зовут?"
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={styles.input}
@@ -56,7 +59,7 @@ export function JoinScreen({ onJoin, error, isHost, onCreateRoom, loading }: Joi
               <input
                 id="room-code"
                 type="text"
-                placeholder="Код комнаты"
+                placeholder="XXXXXX"
                 value={urlRoomId || roomId}
                 onChange={(e) => setRoomId(e.target.value.toUpperCase())}
                 style={{ ...styles.input, ...styles.codeInput }}
@@ -66,7 +69,12 @@ export function JoinScreen({ onJoin, error, isHost, onCreateRoom, loading }: Joi
             </div>
           )}
 
-          {error && <p style={styles.error}>{error}</p>}
+          {error && (
+            <div style={styles.errorBox}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -76,9 +84,24 @@ export function JoinScreen({ onJoin, error, isHost, onCreateRoom, loading }: Joi
             }}
             disabled={!name.trim() || loading}
           >
-            {loading ? 'Подключение...' : isHost ? 'Создать комнату' : 'Войти'}
+            {loading ? (
+              <span style={styles.loadingContent}>
+                <span style={styles.spinner}></span>
+                Подключение...
+              </span>
+            ) : isHost ? 'Создать комнату' : 'Войти в комнату'}
           </button>
         </form>
+
+        <div style={styles.divider}>
+          <span style={styles.dividerText}>или</span>
+        </div>
+
+        <p style={styles.hint}>
+          {isHost
+            ? 'Создайте комнату и пригласите друзей по QR-коду'
+            : 'Сканируйте QR-код или введите код комнаты'}
+        </p>
       </div>
     </div>
   );
@@ -94,76 +117,130 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
   },
   card: {
-    background: 'rgba(255,255,255,0.05)',
-    borderRadius: 20,
+    background: 'rgba(255,255,255,0.08)',
+    borderRadius: 28,
     padding: 40,
     width: '100%',
     maxWidth: 400,
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+  },
+  logoContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   logo: {
-    fontSize: 32,
+    fontSize: 48,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 800,
     textAlign: 'center',
     marginBottom: 8,
+    color: '#fff',
+    margin: 0,
   },
   subtitle: {
     textAlign: 'center',
-    color: '#aaa',
-    marginBottom: 30,
+    color: '#888',
+    marginBottom: 32,
+    fontSize: 15,
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
+    gap: 20,
   },
   inputGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
+    gap: 8,
   },
   label: {
     fontSize: 13,
     color: '#aaa',
     fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
     width: '100%',
-    padding: '14px 16px',
-    borderRadius: 12,
+    padding: '16px 18px',
+    borderRadius: 14,
     border: '2px solid rgba(255,255,255,0.1)',
     background: 'rgba(255,255,255,0.05)',
     color: '#fff',
     fontSize: 16,
     outline: 'none',
-    transition: 'border-color 0.2s, opacity 0.2s',
+    transition: 'all 0.2s',
+    boxSizing: 'border-box',
   },
   codeInput: {
-    fontSize: 24,
+    fontSize: 28,
     textAlign: 'center',
-    letterSpacing: 8,
+    letterSpacing: 12,
     textTransform: 'uppercase',
+    fontWeight: 700,
   },
   button: {
     width: '100%',
-    padding: '14px 0',
-    borderRadius: 12,
+    padding: '16px 0',
+    borderRadius: 14,
     border: 'none',
     background: 'linear-gradient(135deg, #6C63FF, #4ECDC4)',
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 700,
     cursor: 'pointer',
     marginTop: 8,
-    transition: 'transform 0.2s, opacity 0.2s',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 16px rgba(108,99,255,0.3)',
   },
   buttonDisabled: {
     opacity: 0.5,
     cursor: 'not-allowed',
   },
-  error: {
+  loadingContent: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  spinner: {
+    width: 18,
+    height: 18,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  errorBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '12px 16px',
+    borderRadius: 12,
+    background: 'rgba(255,107,107,0.15)',
+    border: '1px solid rgba(255,107,107,0.3)',
     color: '#FF6B6B',
-    textAlign: 'center',
     fontSize: 14,
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    margin: '24px 0',
+  },
+  dividerText: {
+    color: '#666',
+    fontSize: 13,
+    padding: '0 12px',
+  },
+  hint: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+    lineHeight: 1.5,
   },
 };
