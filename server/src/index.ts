@@ -5,6 +5,7 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { RoomManager } from './Room.js';
 import { GameEngine } from './GameEngine.js';
+import { startDiscoveryServer } from './discovery.js';
 
 const app = express();
 const server = createServer(app);
@@ -194,6 +195,7 @@ function processRoundResult(room: any): void {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🎮 PartyStation Server running on port ${PORT}`);
+  startDiscoveryServer(Number(PORT));
 });
 
 process.on('uncaughtException', (err) => {
