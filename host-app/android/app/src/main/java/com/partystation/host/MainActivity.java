@@ -4,9 +4,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -52,6 +54,8 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
 
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
@@ -87,7 +91,7 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
+                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
                     conn.setConnectTimeout(TIMEOUT);
                     conn.setReadTimeout(TIMEOUT);
                     int code = conn.getResponseCode();
@@ -154,7 +158,7 @@ public class MainActivity extends Activity {
             public void run() {
                 getPrefs().edit().putString(KEY_URL, url).apply();
                 webView.loadUrl(url);
-                Toast.makeText(MainActivity.this, "Сервер найден: " + url, Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Сервер: " + url, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -177,12 +181,6 @@ public class MainActivity extends Activity {
         input.setTextSize(16);
         layout.addView(input);
 
-        TextView hint = new TextView(this);
-        hint.setText("Введите IP сервера (например: " + subnet + "1)");
-        hint.setTextSize(12);
-        hint.setTextColor(0xFF888888);
-        layout.addView(hint);
-
         new AlertDialog.Builder(this)
             .setTitle("PartyStation")
             .setMessage("Сервер не найден. Введите адрес:")
@@ -197,7 +195,7 @@ public class MainActivity extends Activity {
                             url = "http://" + url;
                         }
                         if (!url.contains(":")) {
-                            url = url + ":3000";
+                            url = url + ":5173";
                         }
                         getPrefs().edit().putString(KEY_URL, url).apply();
                         webView.loadUrl(url);
@@ -215,7 +213,7 @@ public class MainActivity extends Activity {
                 finish();
             } else {
                 lastBackPress = now;
-                Toast.makeText(this, "Нажмите «Назад» ещё раз для выхода", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show();
             }
             return true;
         }
@@ -229,7 +227,7 @@ public class MainActivity extends Activity {
             finish();
         } else {
             lastBackPress = now;
-            Toast.makeText(this, "Нажмите «Назад» ещё раз для выхода", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show();
         }
     }
 }

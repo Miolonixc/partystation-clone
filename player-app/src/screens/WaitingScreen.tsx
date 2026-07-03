@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Player } from '../types';
 import { QRCode } from '../components/QRCode';
 
@@ -12,7 +12,14 @@ interface WaitingScreenProps {
 export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScreenProps) {
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   const joinUrl = `${window.location.origin}?room=${roomId}`;
+
+  useEffect(() => {
+    const handleResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleCopyCode = async () => {
     try {
@@ -20,14 +27,7 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      const el = document.createElement('textarea');
-      el.value = roomId;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(false);
     }
   };
 
@@ -47,6 +47,65 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
     onStart();
   };
 
+  if (isLandscape) {
+    return (
+      <div style={styles.landscapeContainer}>
+        <div style={styles.landscapeLeft}>
+          <div style={styles.header}>
+            <h2 style={styles.title}>Ожидание игроков</h2>
+            <div style={styles.badge}>{players.length}/10</div>
+          </div>
+
+          <div style={styles.playerList}>
+            {players.length === 0 && (
+              <div style={styles.emptyState}>
+                <span style={styles.emptyIcon}>📱</span>
+                <span style={styles.emptyText}>Сканируйте QR-код</span>
+              </div>
+            )}
+            {players.map((p, i) => (
+              <div key={p.id} style={styles.playerItem}>
+                <div style={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
+                <span style={styles.playerName}>{p.name}</span>
+                {i === 0 && <span style={styles.hostBadge}>ХОСТ</span>}
+              </div>
+            ))}
+          </div>
+
+          {isHost && players.length > 0 && (
+            <button
+              style={styles.startBtn}
+              onClick={handleStart}
+              disabled={starting}
+            >
+              {starting ? 'Запуск...' : `Начать игру (${players.length})`}
+            </button>
+          )}
+        </div>
+
+        <div style={styles.landscapeRight}>
+          <a href={joinUrl} target="_blank" rel="noopener noreferrer" style={styles.qrLinkLandscape}>
+            <QRCode value={joinUrl} size={280} />
+            <span style={styles.qrHint}>Открыть ссылку</span>
+          </a>
+
+          <div style={styles.codeRow}>
+            <span style={styles.code} onClick={handleCopyCode}>
+              {roomId}
+            </span>
+            <button style={styles.copyBtn} onClick={handleCopyCode}>
+              {copied ? '✓' : '📋'}
+            </button>
+          </div>
+
+          <button style={styles.copyLinkBtn} onClick={handleCopyLink}>
+            {copied ? 'Скопировано!' : 'Копировать ссылку'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -64,25 +123,13 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
 
         <div style={styles.roomCode}>
           <div style={styles.codeRow}>
-            <span
-              style={styles.code}
-              onClick={handleCopyCode}
-              onKeyDown={(e) => e.key === 'Enter' && handleCopyCode()}
-              role="button"
-              tabIndex={0}
-              title="Нажмите чтобы скопировать"
-            >
+            <span style={styles.code} onClick={handleCopyCode}>
               {roomId}
             </span>
-            <button
-              style={styles.copyBtn}
-              onClick={handleCopyCode}
-              aria-label="Скопировать код комнаты"
-            >
+            <button style={styles.copyBtn} onClick={handleCopyCode}>
               {copied ? '✓' : '📋'}
             </button>
           </div>
-          <span style={styles.urlHint}>{joinUrl}</span>
           <button style={styles.copyLinkBtn} onClick={handleCopyLink}>
             {copied ? 'Скопировано!' : 'Копировать ссылку'}
           </button>
@@ -92,7 +139,7 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
           {players.length === 0 && (
             <div style={styles.emptyState}>
               <span style={styles.emptyIcon}>📱</span>
-              <span style={styles.emptyText}>Сканируйте QR-код или введите код</span>
+              <span style={styles.emptyText}>Сканируйте QR-код</span>
             </div>
           )}
           {players.map((p, i) => (
@@ -106,23 +153,12 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
 
         {isHost && players.length > 0 && (
           <button
-            style={{
-              ...styles.startBtn,
-              ...(starting ? styles.startBtnDisabled : {}),
-            }}
+            style={styles.startBtn}
             onClick={handleStart}
             disabled={starting}
           >
             {starting ? 'Запуск...' : `Начать игру (${players.length})`}
           </button>
-        )}
-
-        {isHost && players.length === 0 && (
-          <p style={styles.hint}>Ждём игроков...</p>
-        )}
-
-        {!isHost && (
-          <p style={styles.hint}>Хост начнёт игру, когда все будут готовы</p>
         )}
       </div>
     </div>
@@ -147,6 +183,39 @@ const styles: Record<string, React.CSSProperties> = {
     backdropFilter: 'blur(20px)',
     border: '1px solid rgba(255,255,255,0.12)',
     boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+  },
+  landscapeContainer: {
+    minHeight: '100vh',
+    display: 'flex',
+    background: 'linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
+  },
+  landscapeLeft: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '32px 40px',
+    justifyContent: 'center',
+  },
+  landscapeRight: {
+    width: 400,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    background: 'rgba(255,255,255,0.05)',
+    borderLeft: '1px solid rgba(255,255,255,0.1)',
+  },
+  qrLinkLandscape: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textDecoration: 'none',
+    padding: 20,
+    borderRadius: 20,
+    background: 'rgba(255,255,255,0.08)',
+    border: '2px dashed rgba(108,99,255,0.4)',
+    marginBottom: 20,
   },
   header: {
     display: 'flex',
@@ -178,8 +247,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 20,
     background: 'rgba(255,255,255,0.05)',
     border: '2px dashed rgba(108,99,255,0.4)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
   },
   qrSection: {
     borderRadius: 12,
@@ -203,7 +270,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   code: {
     fontSize: 40,
@@ -222,14 +289,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     fontSize: 18,
     cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  urlHint: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 12,
-    wordBreak: 'break-all',
-    textAlign: 'center',
   },
   copyLinkBtn: {
     padding: '10px 20px',
@@ -240,7 +299,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 600,
     cursor: 'pointer',
-    transition: 'all 0.2s',
   },
   playerList: {
     width: '100%',
@@ -270,7 +328,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 14,
     background: 'rgba(255,255,255,0.05)',
     marginBottom: 8,
-    transition: 'all 0.2s',
   },
   avatar: {
     width: 40,
@@ -307,16 +364,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 17,
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'all 0.2s',
     boxShadow: '0 4px 16px rgba(78,205,196,0.3)',
-  },
-  startBtnDisabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-  hint: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
   },
 };
