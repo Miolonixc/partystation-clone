@@ -12,7 +12,7 @@ const GAMES: { type: GameType; name: string; icon: string; desc: string }[] = [
   { type: 'guess_media', name: 'Угадай медиа', icon: '🎵', desc: 'Угадайте название' },
 ];
 
-export function GameSelect({ onSelect, players }: GameSelectProps) {
+export function GameSelectScreen({ onSelect, players }: GameSelectProps) {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
