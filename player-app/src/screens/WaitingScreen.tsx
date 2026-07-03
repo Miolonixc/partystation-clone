@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Player } from '../types';
 import { QRCode } from '../components/QRCode';
+import { AVATARS, AVATAR_COLORS } from '../components/AvatarSelect';
 
 interface WaitingScreenProps {
   players: Player[];
@@ -65,9 +66,11 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
             )}
             {players.map((p, i) => (
               <div key={p.id} style={styles.playerItem}>
-                <div style={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
+                <div style={{ ...styles.avatar, background: AVATAR_COLORS[p.avatar || 0] }}>
+                  {AVATARS[p.avatar || 0] || p.name.charAt(0).toUpperCase()}
+                </div>
                 <span style={styles.playerName}>{p.name}</span>
-                {i === 0 && <span style={styles.hostBadge}>ХОСТ</span>}
+                {p.isHost && <span style={styles.hostBadge}>ХОСТ</span>}
               </div>
             ))}
           </div>
@@ -144,9 +147,11 @@ export function WaitingScreen({ players, roomId, isHost, onStart }: WaitingScree
           )}
           {players.map((p, i) => (
             <div key={p.id} style={styles.playerItem}>
-              <div style={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
+              <div style={{ ...styles.avatar, background: AVATAR_COLORS[p.avatar || 0] }}>
+                {AVATARS[p.avatar || 0] || p.name.charAt(0).toUpperCase()}
+              </div>
               <span style={styles.playerName}>{p.name}</span>
-              {i === 0 && <span style={styles.hostBadge}>ХОСТ</span>}
+              {p.isHost && <span style={styles.hostBadge}>ХОСТ</span>}
             </div>
           ))}
         </div>

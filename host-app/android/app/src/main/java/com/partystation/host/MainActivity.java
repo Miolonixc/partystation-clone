@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setTheme(android.R.style.Theme_NoTitleBar_Fullscreen);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(

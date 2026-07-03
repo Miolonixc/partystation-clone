@@ -2,6 +2,7 @@ import type { Room, RoomSettings, GameType } from './types.js';
 import { getRandomQuestions } from './games/Quiz.js';
 import { getRandomTask } from './games/TruthOrDare.js';
 import { getRandomMediaItems } from './games/GuessMedia.js';
+import { getRandomWhoAmI } from './games/WhoAmI.js';
 
 export class GameEngine {
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -12,22 +13,25 @@ export class GameEngine {
     room.state.currentRound = 1;
     room.state.totalRounds = settings.totalRounds;
     room.state.questionIndex = 0;
+    room.state.currentGameType = settings.gameType;
     room.state.answers.clear();
     room.state.dareVotes.clear();
   }
 
   getCurrentQuestion(room: Room): unknown {
-    switch (room.settings.gameType) {
+    switch (room.state.currentGameType || room.settings.gameType) {
       case 'quiz':
         return this.getQuizQuestion(room);
       case 'truth_or_dare':
         return this.getTruthOrDareTask(room);
       case 'guess_media':
         return this.getGuessMediaItem(room);
+      case 'who_am_i':
+        return this.getWhoAmIQuestion(room);
       case 'mini_game':
-        return { type: room.settings.miniGameType || 'reaction', round: room.state.currentRound };
+        return { type: room.settings.miniGameType || 'reaction', round: room.state.currentRound, total: room.state.totalRounds };
       default:
-        return null;
+        return this.getQuizQuestion(room);
     }
   }
 
@@ -39,10 +43,10 @@ export class GameEngine {
       type: 'quiz' as const,
       question: q.question,
       options: q.options,
+      correctIndex: q.correctIndex,
       timeLimit: room.settings.roundTime,
       round: room.state.currentRound,
       total: room.state.totalRounds,
-      mediaUrl: q.mediaUrl,
     };
   }
 
@@ -57,6 +61,7 @@ export class GameEngine {
       points: task.points,
       round: room.state.currentRound,
       total: room.state.totalRounds,
+      timeLimit: room.settings.roundTime,
     };
   }
 
@@ -68,7 +73,25 @@ export class GameEngine {
       type: 'guess_media' as const,
       mediaUrl: item.mediaUrl,
       mediaType: item.mediaType,
+      question: item.answer,
       options: item.options,
+      correctIndex: item.correctIndex,
+      timeLimit: room.settings.roundTime,
+      round: room.state.currentRound,
+      total: room.state.totalRounds,
+    };
+  }
+
+  private getWhoAmIQuestion(room: Room) {
+    const questions = getRandomWhoAmI(room.settings.totalRounds);
+    if (room.state.questionIndex >= questions.length) return null;
+    const q = questions[room.state.questionIndex];
+    return {
+      type: 'who_am_i' as const,
+      clues: q.clues,
+      answer: q.answer,
+      options: q.options,
+      correctIndex: q.correctIndex,
       timeLimit: room.settings.roundTime,
       round: room.state.currentRound,
       total: room.state.totalRounds,
@@ -91,15 +114,35 @@ export class GameEngine {
     return room.state.dareVotes.size >= room.players.size;
   }
 
-  calculateQuizResults(room: Room): { playerId: string; score: number; correct: boolean }[] {
-    const questions = getRandomQuestions(room.settings.totalRounds);
-    const q = questions[room.state.questionIndex - 1];
-    if (!q) return [];
+  calculateResults(room: Room): { playerId: string; score: number; correct: boolean }[] {
+    const gameType = room.state.currentGameType || room.settings.gameType;
+
+    if (gameType === 'truth_or_dare') {
+      return this.calculateDareResults(room);
+    }
 
     const results: { playerId: string; score: number; correct: boolean }[] = [];
+    let correctIndex = 0;
+
+    if (gameType === 'quiz') {
+      const questions = getRandomQuestions(room.settings.totalRounds);
+      const q = questions[room.state.questionIndex - 1];
+      if (!q) return [];
+      correctIndex = q.correctIndex;
+    } else if (gameType === 'who_am_i') {
+      const questions = getRandomWhoAmI(room.settings.totalRounds);
+      const q = questions[room.state.questionIndex - 1];
+      if (!q) return [];
+      correctIndex = q.correctIndex;
+    } else if (gameType === 'guess_media') {
+      const items = getRandomMediaItems(room.settings.totalRounds);
+      const item = items[room.state.questionIndex - 1];
+      if (!item) return [];
+      correctIndex = item.correctIndex;
+    }
 
     room.state.answers.forEach((answer, playerId) => {
-      const correct = answer.answer === q.correctIndex;
+      const correct = answer.answer === correctIndex;
       const timeBonus = Math.max(0, Math.round((1 - answer.timeSpent / (room.settings.roundTime * 1000)) * 50));
       const score = correct ? 100 + timeBonus : 0;
       results.push({ playerId, score, correct });
@@ -113,14 +156,14 @@ export class GameEngine {
     return results;
   }
 
-  calculateDareResults(room: Room): { playerId: string; score: boolean }[] {
+  calculateDareResults(room: Room): { playerId: string; score: number; correct: boolean }[] {
     const task = room.state.currentTask;
     if (!task) return [];
 
-    const results: { playerId: string; score: boolean }[] = [];
+    const results: { playerId: string; score: number; correct: boolean }[] = [];
 
     room.state.dareVotes.forEach((completed, playerId) => {
-      results.push({ playerId, score: completed });
+      results.push({ playerId, score: completed ? task.points : 0, correct: completed });
       if (completed) {
         const player = room.players.get(playerId);
         if (player) {
@@ -166,9 +209,9 @@ export class GameEngine {
     this.clearTimer(room.id);
   }
 
-  getLeaderboard(room: Room): { playerId: string; playerName: string; score: number }[] {
+  getLeaderboard(room: Room) {
     return Array.from(room.players.values())
-      .map(p => ({ playerId: p.id, playerName: p.name, score: p.score }))
+      .map(p => ({ playerId: p.id, playerName: p.name, score: p.score, avatar: p.avatar }))
       .sort((a, b) => b.score - a.score);
   }
 }

@@ -1,50 +1,31 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { JoinScreen } from './screens/JoinScreen';
 import { WaitingScreen } from './screens/WaitingScreen';
+import { GameSelectScreen } from './screens/GameSelectScreen';
 import { GameScreen } from './screens/GameScreen';
 import { ResultScreen } from './screens/ResultScreen';
 import { GameOverScreen } from './screens/GameOverScreen';
+import type { GameType } from './types';
 
 export default function App() {
   const {
-    connected,
-    players,
-    question,
-    results,
-    gameOver,
-    answered,
-    gameStarted,
-    setAnswered,
-    createRoom,
-    joinRoom,
-    submitAnswer,
-    submitDareVote,
-    nextRound,
-    startGame,
+    connected, reconnecting, players, question, results, gameOver,
+    answered, gameStarted, roomId, playerId, isHost,
+    setAnswered, createRoom, joinRoom, startGame,
+    submitAnswer, submitDareVote, nextRound,
   } = useSocket();
 
-  const [roomId, setRoomId] = useState<string>('');
-  const [playerId, setPlayerId] = useState<string>('');
-  const [isHost, setIsHost] = useState(false);
+  const [screen, setScreen] = useState<'join' | 'waiting' | 'game_select' | 'game' | 'result' | 'gameover'>('join');
   const [error, setError] = useState<string | null>(null);
-  const [screen, setScreen] = useState<'join' | 'waiting' | 'game' | 'result' | 'gameover'>('join');
   const [loading, setLoading] = useState(false);
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlRoomId = urlParams.get('room');
-
-  const handleCreateRoom = async (name: string) => {
+  const handleCreateRoom = async (name: string, avatar: number) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await createRoom(name);
-      if ('roomId' in res) {
-        setRoomId(res.roomId);
-        setPlayerId(res.roomId);
-        setIsHost(true);
-        setScreen('waiting');
-      }
+      await createRoom(name, avatar);
+      setScreen('waiting');
     } catch {
       setError('Ошибка создания комнаты');
     } finally {
@@ -52,20 +33,13 @@ export default function App() {
     }
   };
 
-  const handleJoinRoom = async (id: string, name: string) => {
+  const handleJoinRoom = async (id: string, name: string, avatar: number) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await joinRoom(id, name);
-      if ('error' in res) {
-        setError(res.error);
-        return;
-      }
-      if ('playerId' in res) {
-        setRoomId(id);
-        setPlayerId(res.playerId);
-        setScreen('waiting');
-      }
+      const res = await joinRoom(id, name, avatar);
+      if ('error' in res) { setError(res.error); return; }
+      setScreen('waiting');
     } catch {
       setError('Ошибка подключения');
     } finally {
@@ -73,25 +47,25 @@ export default function App() {
     }
   };
 
+  const handleStartGame = useCallback((gameType: GameType) => {
+    startGame(gameType);
+  }, [startGame]);
+
   const handleAnswer = useCallback((answer: number, timeSpent: number) => {
     setAnswered(true);
-    submitAnswer(roomId, answer, timeSpent);
-  }, [roomId, submitAnswer, setAnswered]);
+    submitAnswer(answer, timeSpent);
+  }, [submitAnswer, setAnswered]);
 
   const handleDareVote = useCallback((completed: boolean) => {
     setAnswered(true);
-    submitDareVote(roomId, completed);
-  }, [roomId, submitDareVote, setAnswered]);
+    submitDareVote(completed);
+  }, [submitDareVote, setAnswered]);
 
   const handleNextRound = useCallback(() => {
-    nextRound(roomId);
-  }, [roomId, nextRound]);
+    nextRound();
+  }, [nextRound]);
 
-  const handleStartGame = useCallback(() => {
-    startGame(roomId, { gameType: 'quiz', totalRounds: 10, roundTime: 15 });
-  }, [roomId, startGame]);
-
-  // Screen transitions via useEffect
+  // Screen transitions
   useEffect(() => {
     if (screen === 'waiting' && gameStarted && question) {
       setScreen('game');
@@ -123,20 +97,13 @@ export default function App() {
     return (
       <div style={styles.loading}>
         <div style={styles.spinner} />
-        <p>Подключение к серверу...</p>
-        <p style={styles.loadingHint}>Проверьте подключение к сети</p>
+        <p>{reconnecting ? 'Переподключение...' : 'Подключение к серверу...'}</p>
       </div>
     );
   }
 
   if (screen === 'gameover' && gameOver) {
-    return (
-      <GameOverScreen
-        leaderboard={gameOver.leaderboard}
-        winner={gameOver.winner}
-        playerId={playerId}
-      />
-    );
+    return <GameOverScreen leaderboard={gameOver.leaderboard} winner={gameOver.winner} playerId={playerId} />;
   }
 
   if (screen === 'result' && results) {
@@ -161,13 +128,17 @@ export default function App() {
     );
   }
 
+  if (screen === 'game_select' && isHost) {
+    return <GameSelectScreen onSelect={handleStartGame} players={players.length} />;
+  }
+
   if (screen === 'waiting') {
     return (
       <WaitingScreen
         players={players}
         roomId={roomId}
         isHost={isHost}
-        onStart={handleStartGame}
+        onStart={() => setScreen('game_select')}
       />
     );
   }
@@ -175,9 +146,8 @@ export default function App() {
   return (
     <JoinScreen
       onJoin={handleJoinRoom}
-      error={error}
-      isHost={!urlRoomId}
       onCreateRoom={handleCreateRoom}
+      error={error}
       loading={loading}
     />
   );
@@ -201,9 +171,5 @@ const styles: Record<string, React.CSSProperties> = {
     borderTopColor: '#6C63FF',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
-  },
-  loadingHint: {
-    fontSize: 14,
-    color: '#666',
   },
 };

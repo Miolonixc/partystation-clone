@@ -1,12 +1,14 @@
-export type GameType = 'quiz' | 'truth_or_dare' | 'guess_media' | 'mini_game';
-export type GameStatus = 'waiting' | 'playing' | 'finished';
+export type GameType = 'quiz' | 'truth_or_dare' | 'guess_media' | 'mini_game' | 'who_am_i' | 'draw_guess';
+export type GameStatus = 'waiting' | 'lobby' | 'playing' | 'finished';
 export type MiniGameType = 'reaction' | 'memory' | 'pattern';
 
 export interface Player {
   id: string;
   name: string;
   score: number;
-  avatar?: string;
+  avatar: number;
+  isHost: boolean;
+  achievements: string[];
 }
 
 export interface QuizQuestion {
@@ -15,7 +17,6 @@ export interface QuizQuestion {
   options: string[];
   correctIndex: number;
   timeLimit: number;
-  mediaUrl?: string;
 }
 
 export interface TruthOrDareTask {
@@ -35,9 +36,12 @@ export interface GuessMediaItem {
   timeLimit: number;
 }
 
-export interface MiniGameConfig {
-  type: MiniGameType;
-  rounds: number;
+export interface WhoAmIQuestion {
+  id: string;
+  clues: string[];
+  answer: string;
+  options: string[];
+  correctIndex: number;
   timeLimit: number;
 }
 
@@ -50,6 +54,7 @@ export interface GameState {
   answers: Map<string, Answer>;
   dareVotes: Map<string, boolean>;
   currentTask?: TruthOrDareTask;
+  currentGameType?: GameType;
 }
 
 export interface Answer {
@@ -78,6 +83,16 @@ export interface LeaderboardEntry {
   playerId: string;
   playerName: string;
   score: number;
-  correct?: number;
-  total?: number;
+  avatar: number;
 }
+
+export const ACHIEVEMENTS = {
+  FIRST_WIN: { id: 'first_win', name: 'Первая победа', description: 'Выиграйте первую игру', icon: '🏆' },
+  PERFECT_ROUND: { id: 'perfect_round', name: 'Идеальный раунд', description: 'Ответьте правильно на все вопросы раунда', icon: '⭐' },
+  SPEED_DEMON: { id: 'speed_demon', name: 'Демон скорости', description: 'Ответьте быстрее всех 3 раза подряд', icon: '⚡' },
+  SOCIAL_BUTTERFLY: { id: 'social_butterfly', name: 'Бабочка', description: 'Сыграйте 5 игр', icon: '🦋' },
+  TRUTH_MASTER: { id: 'truth_master', name: 'Мастер правды', description: 'Выполните 10 заданий "Правда"', icon: '🎤' },
+  DARE_DEVIL: { id: 'dare_devil', name: 'Дьявольский', description: 'Выполните 10 заданий "Действие"', icon: '😈' },
+  QUIZ_KING: { id: 'quiz_king', name: 'Король викторин', description: 'Наберите 1000 очков в викторине', icon: '👑' },
+  COMEBACK: { id: 'comeback', name: 'Возвращение', description: 'Выиграйте после того как были последним', icon: '🔥' },
+};
