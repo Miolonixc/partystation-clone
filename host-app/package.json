@@ -1,0 +1,23 @@
+{
+  "name": "partystation-host",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "tv": "react-native run-android --mode=TV"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.4",
+    "react-native-tvos": "0.73.4-0",
+    "react-native-qrcode-svg": "^6.2.0",
+    "react-native-svg": "^15.1.0",
+    "react-native-linear-gradient": "^2.8.3",
+    "react-native-reanimated": "^3.6.1",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.48",
+    "typescript": "^5.3.3"
+  }
+}

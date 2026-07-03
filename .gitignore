@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.gradle/
+*.apk
+*.hprof
+.DS_Store
+local.properties
+.env
+*.log
