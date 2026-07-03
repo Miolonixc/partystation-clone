@@ -7,8 +7,6 @@ import android.content.SharedPreferences;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -23,7 +21,9 @@ import android.widget.Toast;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.URL;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -31,10 +31,10 @@ public class MainActivity extends Activity {
     private static final String KEY_URL = "server_url";
     private static final String MAGIC = "PARTYSTATION";
     private static final int DISCOVERY_PORT = 41234;
-    private static final int DISCOVERY_TIMEOUT = 2000;
+    private static final int SERVER_PORT = 3000;
+    private static final int TIMEOUT = 1500;
 
     private long lastBackPress = 0;
-    private long lastSwipeBack = 0;
     private static final long BACK_PRESS_INTERVAL = 2000;
 
     @Override
@@ -64,9 +64,9 @@ public class MainActivity extends Activity {
 
         String savedUrl = getPrefs().getString(KEY_URL, null);
         if (savedUrl != null) {
-            webView.loadUrl(savedUrl);
+            tryConnect(savedUrl);
         } else {
-            discoverAndConnect();
+            discoverServer();
         }
     }
 
@@ -74,15 +74,46 @@ public class MainActivity extends Activity {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
     }
 
-    private void discoverAndConnect() {
-        Toast.makeText(this, "Поиск сервера в сети...", Toast.LENGTH_SHORT).show();
-
+    private void tryConnect(final String url) {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
+                    HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
+                    conn.setConnectTimeout(TIMEOUT);
+                    conn.setReadTimeout(TIMEOUT);
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+                    if (code == 200) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                webView.loadUrl(url);
+                            }
+                        });
+                        return;
+                    }
+                } catch (Exception e) {}
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        discoverServer();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private void discoverServer() {
+        Toast.makeText(this, "Поиск сервера...", Toast.LENGTH_SHORT).show();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // Try UDP discovery
+                try {
                     DatagramSocket socket = new DatagramSocket();
-                    socket.setSoTimeout(DISCOVERY_TIMEOUT);
+                    socket.setSoTimeout(TIMEOUT);
                     socket.setBroadcast(true);
 
                     byte[] sendBuf = MAGIC.getBytes();
@@ -102,27 +133,62 @@ public class MainActivity extends Activity {
                         String ip = json.getString("ip");
                         int port = json.getInt("port");
                         final String url = "http://" + ip + ":" + port;
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                getPrefs().edit().putString(KEY_URL, url).apply();
-                                webView.loadUrl(url);
-                                Toast.makeText(MainActivity.this, "Сервер найден: " + url, Toast.LENGTH_SHORT).show();
-                            }
-                        });
+                        socket.close();
+                        connectToServer(url);
+                        return;
                     }
                     socket.close();
-                } catch (Exception e) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            showUrlDialog();
-                        }
-                    });
-                }
+                } catch (Exception e) {}
+
+                // Fallback: scan local network
+                scanLocalNetwork();
             }
         }).start();
+    }
+
+    private void scanLocalNetwork() {
+        try {
+            WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+            WifiInfo info = wifi.getConnectionInfo();
+            int ip = info.getIpAddress();
+            String baseIp = String.format("%d.%d.%d.",
+                (ip & 0xFF),
+                ((ip >> 8) & 0xFF),
+                ((ip >> 16) & 0xFF));
+
+            for (int i = 1; i < 255; i++) {
+                final String url = "http://" + baseIp + i + ":3000";
+                try {
+                    HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
+                    conn.setConnectTimeout(200);
+                    conn.setReadTimeout(200);
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+                    if (code == 200) {
+                        connectToServer(url);
+                        return;
+                    }
+                } catch (Exception e) {}
+            }
+        } catch (Exception e) {}
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                showUrlDialog();
+            }
+        });
+    }
+
+    private void connectToServer(final String url) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getPrefs().edit().putString(KEY_URL, url).apply();
+                webView.loadUrl(url);
+                Toast.makeText(MainActivity.this, "Сервер найден: " + url, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private InetAddress getBroadcastAddress() throws Exception {
@@ -133,7 +199,6 @@ public class MainActivity extends Activity {
         quads[0] = (byte) (ip & 0xFF);
         quads[1] = (byte) ((ip >> 8) & 0xFF);
         quads[2] = (byte) ((ip >> 16) & 0xFF);
-        quads[3] = (byte) ((ip >> 24) & 0xFF);
         quads[3] = (byte) 255;
         return InetAddress.getByAddress(quads);
     }
@@ -150,13 +215,13 @@ public class MainActivity extends Activity {
         layout.addView(label);
 
         final EditText input = new EditText(this);
-        input.setHint("http://IP:5173");
+        input.setHint("http://IP:3000");
         input.setTextSize(16);
         layout.addView(input);
 
         new AlertDialog.Builder(this)
             .setTitle("PartyStation")
-            .setMessage("Сервер не найден. Введите адрес вручную:")
+            .setMessage("Сервер не найден. Введите адрес:")
             .setView(layout)
             .setCancelable(false)
             .setPositiveButton("Подключить", new DialogInterface.OnClickListener() {
@@ -175,7 +240,7 @@ public class MainActivity extends Activity {
             .setNeutralButton("Искать снова", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    discoverAndConnect();
+                    discoverServer();
                 }
             })
             .show();
@@ -193,18 +258,6 @@ public class MainActivity extends Activity {
             }
             return true;
         }
-
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND || keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
-            long now = System.currentTimeMillis();
-            if (now - lastSwipeBack < BACK_PRESS_INTERVAL) {
-                finish();
-            } else {
-                lastSwipeBack = now;
-                Toast.makeText(this, "Повторите для выхода", Toast.LENGTH_SHORT).show();
-            }
-            return true;
-        }
-
         return super.onKeyDown(keyCode, event);
     }
 
