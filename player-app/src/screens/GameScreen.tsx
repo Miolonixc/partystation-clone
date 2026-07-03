@@ -10,21 +10,22 @@ interface GameScreenProps {
 
 export function GameScreen({ question, onAnswer, onDareVote, answered }: GameScreenProps) {
   const [selected, setSelected] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState(question.timeLimit || 15);
+  const timeLimit = 'timeLimit' in question ? question.timeLimit : 15;
+  const [timeLeft, setTimeLeft] = useState(timeLimit);
   const startTimeRef = useRef(Date.now());
   const onAnswerRef = useRef(onAnswer);
   onAnswerRef.current = onAnswer;
 
   useEffect(() => {
     setSelected(null);
-    setTimeLeft(question.timeLimit || 15);
+    setTimeLeft('timeLimit' in question ? question.timeLimit : 15);
     startTimeRef.current = Date.now();
   }, [question]);
 
   useEffect(() => {
     if (answered || question.type === 'truth_or_dare') return;
     const timer = setInterval(() => {
-      setTimeLeft((t) => {
+      setTimeLeft((t: number) => {
         if (t <= 1) {
           clearInterval(timer);
           onAnswerRef.current(-1, Date.now() - startTimeRef.current);
@@ -85,6 +86,9 @@ export function GameScreen({ question, onAnswer, onDareVote, answered }: GameScr
     );
   }
 
+  const questionText = 'question' in question ? question.question : '';
+  const options = 'options' in question ? question.options : [];
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -102,7 +106,7 @@ export function GameScreen({ question, onAnswer, onDareVote, answered }: GameScr
             <path
               style={{
                 ...styles.timerProgress,
-                strokeDasharray: `${(timeLeft / (question.timeLimit || 15)) * 100}, 100`,
+                strokeDasharray: `${(timeLeft / timeLimit) * 100}, 100`,
               }}
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               fill="none"
@@ -114,11 +118,11 @@ export function GameScreen({ question, onAnswer, onDareVote, answered }: GameScr
       </div>
 
       <div style={styles.questionCard}>
-        <p style={styles.questionText}>{question.question}</p>
+        <p style={styles.questionText}>{questionText}</p>
       </div>
 
       <div style={styles.options}>
-        {question.options.map((opt, i) => (
+        {options.map((opt: string, i: number) => (
           <button
             key={i}
             style={{
@@ -270,11 +274,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     fontWeight: 700,
   },
-  dareCard: {
+  card: {
     background: 'rgba(255,255,255,0.05)',
     borderRadius: 20,
     padding: 32,
     textAlign: 'center',
+  },
+  dareCard: {
+    padding: 32,
   },
   dareType: {
     fontSize: 20,

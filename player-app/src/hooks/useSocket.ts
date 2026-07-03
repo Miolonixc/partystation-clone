@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { Player, Question, RoundResult } from '../types';
+import type { Player, Question, RoundResult, GameOverData } from '../types';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL
   || `http://${window.location.hostname}:3000`;
@@ -11,7 +11,7 @@ export function useSocket() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [question, setQuestion] = useState<Question | null>(null);
   const [results, setResults] = useState<RoundResult | null>(null);
-  const [gameOver, setGameOver] = useState<{ leaderboard: Player[]; winner: Player } | null>(null);
+  const [gameOver, setGameOver] = useState<GameOverData | null>(null);
   const [answered, setAnswered] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 

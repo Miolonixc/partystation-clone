@@ -1,8 +1,12 @@
-import type { Player } from '../types';
+interface LeaderboardEntry {
+  playerId: string;
+  playerName: string;
+  score: number;
+}
 
 interface GameOverScreenProps {
-  leaderboard: Player[];
-  winner: Player;
+  leaderboard: LeaderboardEntry[];
+  winner: LeaderboardEntry;
   playerId: string;
 }
 
