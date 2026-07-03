@@ -31,11 +31,11 @@ jobs:
       run: |
         cd host-app/android
         chmod +x gradlew
-        ./gradlew assembleRelease
+        ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: PartyStation-Host
-        path: host-app/android/app/build/outputs/apk/release/*.apk
+        path: host-app/android/app/build/outputs/apk/debug/*.apk
         retention-days: 30
