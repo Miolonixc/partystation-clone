@@ -26,8 +26,7 @@ public class MainActivity extends Activity {
     private WebView webView;
     private static final String PREFS = "partystation";
     private static final String KEY_URL = "server_url";
-    private static final int SERVER_PORT = 3000;
-    private static final int TIMEOUT = 500;
+    private static final int TIMEOUT = 800;
 
     private long lastBackPress = 0;
     private static final long BACK_PRESS_INTERVAL = 2000;
@@ -69,25 +68,18 @@ public class MainActivity extends Activity {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
     }
 
-    private String getDeviceIp() {
+    private String getSubnet() {
         try {
             WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
             WifiInfo info = wifi.getConnectionInfo();
             int ip = info.getIpAddress();
-            return String.format("%d.%d.%d.%d",
+            return String.format("%d.%d.%d.",
                 (ip & 0xFF),
                 ((ip >> 8) & 0xFF),
-                ((ip >> 16) & 0xFF),
-                ((ip >> 24) & 0xFF));
+                ((ip >> 16) & 0xFF));
         } catch (Exception e) {
-            return "192.168.1.1";
+            return "192.168.1.";
         }
-    }
-
-    private String getSubnet() {
-        String ip = getDeviceIp();
-        int lastDot = ip.lastIndexOf('.');
-        return ip.substring(0, lastDot + 1);
     }
 
     private void tryConnect(final String url) {
@@ -121,33 +113,30 @@ public class MainActivity extends Activity {
     }
 
     private void discoverServer() {
-        Toast.makeText(this, "Поиск сервера в подсети...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Поиск сервера...", Toast.LENGTH_SHORT).show();
 
         new Thread(new Runnable() {
             @Override
             public void run() {
                 String subnet = getSubnet();
 
-                // Scan common ports on subnet
-                int[] ports = {3000, 5173, 8080, 80};
+                // Scan subnet quickly
                 for (int i = 1; i < 255; i++) {
-                    for (int port : ports) {
-                        final String url = "http://" + subnet + i + ":" + port;
-                        try {
-                            HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
-                            conn.setConnectTimeout(TIMEOUT);
-                            conn.setReadTimeout(TIMEOUT);
-                            int code = conn.getResponseCode();
-                            conn.disconnect();
-                            if (code == 200) {
-                                connectToServer(url);
-                                return;
-                            }
-                        } catch (Exception e) {}
-                    }
+                    final String url = "http://" + subnet + i + ":3000";
+                    try {
+                        HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
+                        conn.setConnectTimeout(300);
+                        conn.setReadTimeout(300);
+                        int code = conn.getResponseCode();
+                        conn.disconnect();
+                        if (code == 200) {
+                            connectToServer(url);
+                            return;
+                        }
+                    } catch (Exception e) {}
                 }
 
-                // Not found - show manual input
+                // Not found
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -188,7 +177,7 @@ public class MainActivity extends Activity {
         layout.addView(input);
 
         TextView hint = new TextView(this);
-        hint.setText("Введите IP адрес сервера (например: " + subnet + "1)");
+        hint.setText("Введите IP сервера (например: " + subnet + "1)");
         hint.setTextSize(12);
         hint.setTextColor(0xFF888888);
         layout.addView(hint);
@@ -212,12 +201,6 @@ public class MainActivity extends Activity {
                         getPrefs().edit().putString(KEY_URL, url).apply();
                         webView.loadUrl(url);
                     }
-                }
-            })
-            .setNeutralButton("Искать снова", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    discoverServer();
                 }
             })
             .show();
