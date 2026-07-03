@@ -4,11 +4,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -29,7 +27,6 @@ public class MainActivity extends Activity {
     private static final String PREFS = "partystation";
     private static final String KEY_URL = "server_url";
     private static final int TIMEOUT = 800;
-
     private long lastBackPress = 0;
     private static final long BACK_PRESS_INTERVAL = 2000;
 
@@ -37,198 +34,122 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setTheme(android.R.style.Theme_NoTitleBar_Fullscreen);
-
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        );
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         webView = new WebView(this);
         setContentView(webView);
-
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
-
+        WebSettings s = webView.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setAllowFileAccess(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
 
-        String savedUrl = getPrefs().getString(KEY_URL, null);
-        if (savedUrl != null) {
-            tryConnect(savedUrl);
-        } else {
-            discoverServer();
-        }
+        String saved = getPrefs().getString(KEY_URL, null);
+        if (saved != null) tryConnect(saved); else discoverServer();
     }
 
-    private SharedPreferences getPrefs() {
-        return getSharedPreferences(PREFS, MODE_PRIVATE);
-    }
+    private SharedPreferences getPrefs() { return getSharedPreferences(PREFS, MODE_PRIVATE); }
 
     private String getSubnet() {
         try {
-            WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
-            WifiInfo info = wifi.getConnectionInfo();
-            int ip = info.getIpAddress();
-            return String.format("%d.%d.%d.",
-                (ip & 0xFF),
-                ((ip >> 8) & 0xFF),
-                ((ip >> 16) & 0xFF));
-        } catch (Exception e) {
-            return "192.168.1.";
-        }
+            WifiManager w = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+            int ip = w.getConnectionInfo().getIpAddress();
+            return String.format("%d.%d.%d.", ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF);
+        } catch (Exception e) { return "192.168.1."; }
     }
 
     private void tryConnect(final String url) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                    conn.setConnectTimeout(TIMEOUT);
-                    conn.setReadTimeout(TIMEOUT);
-                    int code = conn.getResponseCode();
-                    conn.disconnect();
-                    if (code == 200) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                webView.loadUrl(url);
-                            }
-                        });
-                        return;
-                    }
-                } catch (Exception e) {}
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        discoverServer();
-                    }
-                });
-            }
+        new Thread(() -> {
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(TIMEOUT); c.setReadTimeout(TIMEOUT);
+                int code = c.getResponseCode(); c.disconnect();
+                if (code == 200) { runOnUiThread(() -> webView.loadUrl(url)); return; }
+            } catch (Exception e) {}
+            runOnUiThread(this::discoverServer);
         }).start();
     }
 
     private void discoverServer() {
-        Toast.makeText(this, "Поиск сервера...", Toast.LENGTH_SHORT).show();
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String subnet = getSubnet();
-                int[] ports = {5173, 3000, 8080, 80};
-
-                for (int port : ports) {
-                    for (int i = 1; i < 255; i++) {
-                        final String url = "http://" + subnet + i + ":" + port;
-                        try {
-                            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                            conn.setConnectTimeout(300);
-                            conn.setReadTimeout(300);
-                            int code = conn.getResponseCode();
-                            conn.disconnect();
-                            if (code == 200) {
-                                connectToServer(url);
-                                return;
-                            }
-                        } catch (Exception e) {}
-                    }
+        webView.loadData(getSplashHtml(), "text/html", "UTF-8");
+        new Thread(() -> {
+            String sub = getSubnet();
+            for (int port : new int[]{5173, 3000, 8080, 80}) {
+                for (int i = 1; i < 255; i++) {
+                    String url = "http://" + sub + i + ":" + port;
+                    try {
+                        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                        c.setConnectTimeout(300); c.setReadTimeout(300);
+                        if (c.getResponseCode() == 200) { c.disconnect(); connectToServer(url); return; }
+                        c.disconnect();
+                    } catch (Exception e) {}
                 }
-
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        showUrlDialog();
-                    }
-                });
             }
+            runOnUiThread(this::showUrlDialog);
         }).start();
     }
 
-    private void connectToServer(final String url) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                getPrefs().edit().putString(KEY_URL, url).apply();
-                webView.loadUrl(url);
-                Toast.makeText(MainActivity.this, "Сервер: " + url, Toast.LENGTH_SHORT).show();
-            }
+    private void connectToServer(String url) {
+        runOnUiThread(() -> {
+            getPrefs().edit().putString(KEY_URL, url).apply();
+            webView.loadUrl(url);
         });
     }
 
     private void showUrlDialog() {
-        String subnet = getSubnet();
-
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad, pad, pad);
-
-        TextView label = new TextView(this);
-        label.setText("Адрес сервера:");
-        label.setTextSize(16);
-        layout.addView(label);
-
-        final EditText input = new EditText(this);
-        input.setText(subnet);
-        input.setTextSize(16);
-        layout.addView(input);
-
-        new AlertDialog.Builder(this)
-            .setTitle("PartyStation")
-            .setMessage("Сервер не найден. Введите адрес:")
-            .setView(layout)
-            .setCancelable(false)
-            .setPositiveButton("Подключить", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    String url = input.getText().toString().trim();
-                    if (!url.isEmpty()) {
-                        if (!url.startsWith("http")) {
-                            url = "http://" + url;
-                        }
-                        if (!url.contains(":")) {
-                            url = url + ":5173";
-                        }
-                        getPrefs().edit().putString(KEY_URL, url).apply();
-                        webView.loadUrl(url);
-                    }
+        String sub = getSubnet();
+        LinearLayout lay = new LinearLayout(this);
+        lay.setOrientation(LinearLayout.VERTICAL);
+        int p = (int)(20 * getResources().getDisplayMetrics().density);
+        lay.setPadding(p, p, p, p);
+        TextView lbl = new TextView(this); lbl.setText("Адрес сервера:"); lbl.setTextSize(16); lay.addView(lbl);
+        final EditText inp = new EditText(this); inp.setText(sub); inp.setTextSize(16); lay.addView(inp);
+        TextView h = new TextView(this); h.setText("Введите IP (напр: " + sub + "1)"); h.setTextSize(12); h.setTextColor(0xFF888888); lay.addView(h);
+        new AlertDialog.Builder(this).setTitle("PartyStation").setMessage("Сервер не найден:").setView(lay).setCancelable(false)
+            .setPositiveButton("Подключить", (d, w) -> {
+                String url = inp.getText().toString().trim();
+                if (!url.isEmpty()) {
+                    if (!url.startsWith("http")) url = "http://" + url;
+                    if (!url.contains(":")) url += ":5173";
+                    getPrefs().edit().putString(KEY_URL, url).apply();
+                    webView.loadUrl(url);
                 }
-            })
-            .show();
+            }).show();
+    }
+
+    private String getSplashHtml() {
+        return "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>" +
+            "body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;" +
+            "background:linear-gradient(135deg,#1A1A2E,#16213E,#0F3460);font-family:sans-serif;color:#fff;text-align:center}" +
+            ".c{display:flex;flex-direction:column;align-items:center;gap:16px}" +
+            ".s{width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:#6C63FF;border-radius:50%;animation:r 1s linear infinite}" +
+            "@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div class='c'>" +
+            "<div style='font-size:64px'>🎮</div>" +
+            "<div style='font-size:32px;font-weight:800'>PartyStation</div>" +
+            "<div style='font-size:16px;color:#888'>Поиск сервера...</div>" +
+            "<div class='s'></div></div></body></html>";
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            long now = System.currentTimeMillis();
-            if (now - lastBackPress < BACK_PRESS_INTERVAL) {
-                finish();
-            } else {
-                lastBackPress = now;
-                Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show();
-            }
+    public boolean onKeyDown(int k, KeyEvent e) {
+        if (k == KeyEvent.KEYCODE_BACK) {
+            long n = System.currentTimeMillis();
+            if (n - lastBackPress < BACK_PRESS_INTERVAL) finish();
+            else { lastBackPress = n; Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show(); }
             return true;
         }
-        return super.onKeyDown(keyCode, event);
+        return super.onKeyDown(k, e);
     }
 
-    @Override
-    public void onBackPressed() {
-        long now = System.currentTimeMillis();
-        if (now - lastBackPress < BACK_PRESS_INTERVAL) {
-            finish();
-        } else {
-            lastBackPress = now;
-            Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show();
-        }
+    @Override public void onBackPressed() {
+        long n = System.currentTimeMillis();
+        if (n - lastBackPress < BACK_PRESS_INTERVAL) finish();
+        else { lastBackPress = n; Toast.makeText(this, "Нажмите «Назад» ещё раз", Toast.LENGTH_SHORT).show(); }
     }
 }
