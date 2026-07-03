@@ -21,6 +21,23 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Increment version
+      run: |
+        cd host-app/android/app
+        VERSION_CODE=$(grep 'versionCode' build.gradle | grep -o '[0-9]*')
+        NEW_VERSION_CODE=$((VERSION_CODE + 1))
+        sed -i "s/versionCode $VERSION_CODE/versionCode $NEW_VERSION_CODE/" build.gradle
+        
+        VERSION_NAME=$(grep 'versionName' build.gradle | grep -o '"[^"]*"' | tr -d '"')
+        MAJOR=$(echo $VERSION_NAME | cut -d. -f1)
+        MINOR=$(echo $VERSION_NAME | cut -d. -f2)
+        PATCH=$(echo $VERSION_NAME | cut -d. -f3)
+        NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}.${NEW_VERSION_CODE}"
+        sed -i "s/versionName \"$VERSION_NAME\"/versionName \"$NEW_VERSION\"/" build.gradle
+        
+        echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
+        echo "Built version: $NEW_VERSION"
+
     - name: Build player web app
       run: |
         cd player-app
@@ -36,6 +53,6 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: PartyStation-Host
+        name: PartyStation-${{ env.VERSION }}
         path: host-app/android/app/build/outputs/apk/debug/*.apk
         retention-days: 30

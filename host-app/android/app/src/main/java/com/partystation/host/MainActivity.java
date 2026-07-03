@@ -119,24 +119,25 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 String subnet = getSubnet();
+                int[] ports = {5173, 3000, 8080, 80};
 
-                // Scan subnet quickly
-                for (int i = 1; i < 255; i++) {
-                    final String url = "http://" + subnet + i + ":3000";
-                    try {
-                        HttpURLConnection conn = (HttpURLConnection) new URL(url + "/health").openConnection();
-                        conn.setConnectTimeout(300);
-                        conn.setReadTimeout(300);
-                        int code = conn.getResponseCode();
-                        conn.disconnect();
-                        if (code == 200) {
-                            connectToServer(url);
-                            return;
-                        }
-                    } catch (Exception e) {}
+                for (int port : ports) {
+                    for (int i = 1; i < 255; i++) {
+                        final String url = "http://" + subnet + i + ":" + port;
+                        try {
+                            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                            conn.setConnectTimeout(300);
+                            conn.setReadTimeout(300);
+                            int code = conn.getResponseCode();
+                            conn.disconnect();
+                            if (code == 200) {
+                                connectToServer(url);
+                                return;
+                            }
+                        } catch (Exception e) {}
+                    }
                 }
 
-                // Not found
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
