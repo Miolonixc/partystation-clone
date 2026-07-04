@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Question } from '../types';
 
+const isHostMode = new URLSearchParams(window.location.search).get('host') === 'true';
+
 interface GameScreenProps {
   question: Question;
   onAnswer: (answer: number, timeSpent: number) => void;
@@ -115,27 +117,44 @@ export function GameScreen({ question, onAnswer, onDareVote, answered }: GameScr
         <p style={styles.questionText}>{questionText}</p>
       </div>
 
-      <div style={styles.options}>
-        {options.map((opt: string, i: number) => (
-          <button
-            key={i}
-            style={{
-              ...styles.optionBtn,
-              ...(selected === i ? styles.optionSelected : {}),
-              ...(answered && selected !== i ? styles.optionDisabled : {}),
-            }}
-            onClick={() => handleSelect(i)}
-            disabled={answered}
-          >
-            <span style={styles.optionLetter}>{String.fromCharCode(65 + i)}</span>
-            <span style={styles.optionText}>{opt}</span>
-            {selected === i && answered && <span style={styles.checkMark}>✓</span>}
-          </button>
-        ))}
-      </div>
+      {!isHostMode && (
+        <div style={styles.options}>
+          {options.map((opt: string, i: number) => (
+            <button
+              key={i}
+              style={{
+                ...styles.optionBtn,
+                ...(selected === i ? styles.optionSelected : {}),
+                ...(answered && selected !== i ? styles.optionDisabled : {}),
+              }}
+              onClick={() => handleSelect(i)}
+              disabled={answered}
+            >
+              <span style={styles.optionLetter}>{String.fromCharCode(65 + i)}</span>
+              <span style={styles.optionText}>{opt}</span>
+              {selected === i && answered && <span style={styles.checkMark}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {answered && (
+      {isHostMode && (
+        <div style={styles.optionsDisplay}>
+          {options.map((opt: string, i: number) => (
+            <div key={i} style={styles.optionDisplayItem}>
+              <span style={styles.optionLetter}>{String.fromCharCode(65 + i)}</span>
+              <span style={styles.optionText}>{opt}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {answered && !isHostMode && (
         <div style={styles.submittedBadge}>✓ Отправлено! Ожидаем других...</div>
+      )}
+
+      {isHostMode && (
+        <div style={styles.hostBadge}>📺 Режим хоста — ответы на телефонах</div>
       )}
     </div>
   );
@@ -323,5 +342,33 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#4ECDC4',
     fontWeight: 600,
     fontSize: 16,
+  },
+  optionsDisplay: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  optionDisplayItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    padding: '18px 20px',
+    borderRadius: 16,
+    border: '2px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.05)',
+    color: '#fff',
+    fontSize: 16,
+  },
+  hostBadge: {
+    textAlign: 'center',
+    marginTop: 24,
+    padding: '12px 20px',
+    borderRadius: 12,
+    background: 'rgba(108,99,255,0.15)',
+    border: '1px solid rgba(108,99,255,0.3)',
+    color: '#a5a0ff',
+    fontSize: 14,
+    fontWeight: 500,
   },
 };
