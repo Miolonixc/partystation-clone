@@ -76,18 +76,19 @@ export function useSocket() {
     return () => { socket.disconnect(); };
   }, []);
 
-  const createRoom = useCallback((hostName: string, avatar: number): Promise<{ roomId: string }> => {
+  const createRoom = useCallback((hostName: string, avatar: number, joinAsPlayer: boolean = true): Promise<{ roomId: string }> => {
     return new Promise((resolve) => {
       socketRef.current?.emit('create-room', { hostName }, (res: { roomId: string }) => {
         setRoomId(res.roomId);
         setPlayerId(socketRef.current?.id || '');
         setIsHost(true);
-        // Auto-join as first player
-        socketRef.current?.emit('join-room', { roomId: res.roomId, playerName: hostName, avatar }, (joinRes: any) => {
-          if (joinRes.playerId) {
-            setPlayerId(joinRes.playerId);
-          }
-        });
+        if (joinAsPlayer) {
+          socketRef.current?.emit('join-room', { roomId: res.roomId, playerName: hostName, avatar }, (joinRes: any) => {
+            if (joinRes.playerId) {
+              setPlayerId(joinRes.playerId);
+            }
+          });
+        }
         resolve(res);
       });
     });

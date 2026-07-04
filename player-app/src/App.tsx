@@ -22,10 +22,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Auto-create room for TV host
+  // Auto-create room for TV host (without joining as player)
   useEffect(() => {
     if (isHostMode && connected && !roomId) {
-      createRoom('Хост', 0).then(() => {
+      createRoom('Хост', 0, false).then(() => {
         setScreen('waiting');
       });
     }
@@ -76,9 +76,9 @@ export default function App() {
     nextRound();
   }, [nextRound]);
 
-  // Screen transitions
+  // Screen transitions - FIXED: handle game_select too
   useEffect(() => {
-    if (screen === 'waiting' && gameStarted && question) {
+    if ((screen === 'waiting' || screen === 'game_select') && gameStarted && question) {
       setScreen('game');
     }
   }, [screen, gameStarted, question]);
