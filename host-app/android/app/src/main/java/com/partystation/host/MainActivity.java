@@ -51,7 +51,14 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient());
 
         String saved = getPrefs().getString(KEY_URL, null);
-        if (saved != null) tryConnect(saved); else discoverServer();
+        if (saved != null) {
+            if (!saved.contains("host=true")) {
+                saved += saved.contains("?") ? "&host=true" : "?host=true";
+            }
+            tryConnect(saved);
+        } else {
+            discoverServer();
+        }
     }
 
     private SharedPreferences getPrefs() { return getSharedPreferences(PREFS, MODE_PRIVATE); }
@@ -98,6 +105,8 @@ public class MainActivity extends Activity {
     private void connectToServer(String url) {
         runOnUiThread(() -> {
             getPrefs().edit().putString(KEY_URL, url).apply();
+            if (!url.contains("?")) url += "?host=true";
+            else if (!url.contains("host=true")) url += "&host=true";
             webView.loadUrl(url);
         });
     }

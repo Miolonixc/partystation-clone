@@ -8,6 +8,8 @@ import { ResultScreen } from './screens/ResultScreen';
 import { GameOverScreen } from './screens/GameOverScreen';
 import type { GameType } from './types';
 
+const isHostMode = new URLSearchParams(window.location.search).get('host') === 'true';
+
 export default function App() {
   const {
     connected, reconnecting, players, question, results, gameOver,
@@ -19,6 +21,15 @@ export default function App() {
   const [screen, setScreen] = useState<'join' | 'waiting' | 'game_select' | 'game' | 'result' | 'gameover'>('join');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Auto-create room for TV host
+  useEffect(() => {
+    if (isHostMode && connected && !roomId) {
+      createRoom('Хост', 0).then(() => {
+        setScreen('waiting');
+      });
+    }
+  }, [connected, roomId]);
 
   const handleCreateRoom = async (name: string, avatar: number) => {
     setLoading(true);
