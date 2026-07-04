@@ -72,12 +72,13 @@ public class MainActivity extends Activity {
     }
 
     private void tryConnect(final String url) {
+        final String hostUrl = url + (url.contains("?") ? "&" : "?") + "host=true";
         new Thread(() -> {
             try {
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setConnectTimeout(TIMEOUT); c.setReadTimeout(TIMEOUT);
                 int code = c.getResponseCode(); c.disconnect();
-                if (code == 200) { runOnUiThread(() -> webView.loadUrl(url)); return; }
+                if (code == 200) { runOnUiThread(() -> webView.loadUrl(hostUrl)); return; }
             } catch (Exception e) {}
             runOnUiThread(this::discoverServer);
         }).start();
@@ -103,11 +104,14 @@ public class MainActivity extends Activity {
     }
 
     private void connectToServer(String url) {
+        final String finalUrl = url;
         runOnUiThread(() -> {
-            getPrefs().edit().putString(KEY_URL, url).apply();
-            if (!url.contains("?")) url += "?host=true";
-            else if (!url.contains("host=true")) url += "&host=true";
-            webView.loadUrl(url);
+            getPrefs().edit().putString(KEY_URL, finalUrl).apply();
+            String loadUrl = finalUrl;
+            if (!loadUrl.contains("host=true")) {
+                loadUrl += loadUrl.contains("?") ? "&host=true" : "?host=true";
+            }
+            webView.loadUrl(loadUrl);
         });
     }
 
